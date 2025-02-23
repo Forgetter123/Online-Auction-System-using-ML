@@ -1,0 +1,14 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<h2>{{ item.item_name }}</h2>
+<p>Category: {{ item.category }}</p>
+<p>Condition: {{ item.item_condition }}</p>
+<p>Starting Price: ${{ item.starting_price }}</p>
+<p>Final Price: ${{ item.final_price }}</p>
+<p>Bids Count: {{ item.bids_count }}</p>
+<p>Auction Duration: {{ item.auction_duration }} hours</p>
+<p>Seller Rating: {{ item.seller_rating }}</p>
+<p>Buyer Region: {{ item.buyer_region }}</p>
+{% endblock %}
+        
