@@ -1,0 +1,1 @@
+console.log('Auction System Loaded');
