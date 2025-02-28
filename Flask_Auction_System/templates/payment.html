@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Payment{% endblock %}
+{% block content %}
+<h2>Payment</h2>
+<p>Item: {{ item_name }}</p>
+<p>Final Price: {{ final_price }}</p>
+<form method="POST">
+    <input type="text" name="payment_method" placeholder="Payment Method" required>
+    <button type="submit">Pay</button>
+</form>
+{% endblock %}

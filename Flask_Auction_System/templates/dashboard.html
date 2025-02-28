@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2>Welcome, {{ username }}</h2>
+<a href="{{ url_for('auction.add_item') }}">Add Item</a>
+<h3>Ongoing Auctions</h3>
+<ul>
+    {% for auction in auctions %}
+    <li>{{ auction.item_name }} - <a href="{{ url_for('auction_detail', item_id=auction.item_id) }}">View</a></li>
+    {% endfor %}
+</ul>
+{% endblock %}
