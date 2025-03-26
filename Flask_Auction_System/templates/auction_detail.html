@@ -1,13 +1,496 @@
 {% extends 'base.html' %}
-{% block title %}Auction Detail{% endblock %}
+{% block title %}{{ auction.item_name }} - AuctionHub{% endblock %}
+
 {% block content %}
-<h2>{{ auction.item_name }}</h2>
-<p>Category: {{ auction.category }}</p>
-<p>Condition: {{ auction.item_condition }}</p>
-<p>Starting Price: {{ auction.starting_price }}</p>
-<p>Current Highest Bid: {{ auction.final_price }}</p>
-<form method="POST">
-    <input type="number" name="bid_amount" placeholder="Your Bid Amount" required>
-    <button type="submit">Place Bid</button>
-</form>
+<section class="auction-detail">
+    <div class="auction-breadcrumb">
+        <a href="{{ url_for('index') }}">Home</a> &gt;
+        <a href="{{ url_for('auction.browse') }}">Auctions</a> &gt;
+        <a href="{{ url_for('auction.browse', category=auction.category) }}">{{ auction.category|title }}</a> &gt;
+        <span>{{ auction.item_name }}</span>
+    </div>
+    
+    <div class="auction-detail-container">
+        <div class="auction-images">
+            <div class="main-image">
+                <img id="main-image" src="{{ url_for('static', filename='uploads/' + auction.image) }}" alt="{{ auction.item_name }}">
+            </div>
+            
+            {% if auction.additional_images %}
+                <div class="thumbnail-gallery">
+                    <div class="thumbnail active" onclick="changeImage(this, '{{ url_for('static', filename='uploads/' + auction.image) }}')">
+                        <img src="{{ url_for('static', filename='uploads/' + auction.image) }}" alt="{{ auction.item_name }}">
+                    </div>
+                    {% for img in auction.additional_images %}
+                        <div class="thumbnail" onclick="changeImage(this, '{{ url_for('static', filename='uploads/' + img) }}')">
+                            <img src="{{ url_for('static', filename='uploads/' + img) }}" alt="{{ auction.item_name }}">
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="auction-info">
+            <div class="auction-header">
+                <h1>{{ auction.item_name }}</h1>
+                <div class="auction-meta">
+                    <span class="item-id">Item #{{ auction.item_id }}</span>
+                    <span class="category">{{ auction.category|title }}</span>
+                    <span class="condition">{{ auction.item_condition|replace('_', ' ')|title }}</span>
+                </div>
+            </div>
+            
+            <div class="auction-status">
+                <div class="time-remaining {% if auction.is_ended %}ended{% endif %}">
+                    {% if auction.is_ended %}
+                        <span class="status-label">Auction Ended</span>
+                        <span class="end-time">Ended on {{ auction.end_time|date }}</span>
+                    {% else %}
+                        <span class="status-label">Time Remaining</span>
+                        <div class="countdown" data-end="{{ auction.end_time_iso }}">
+                            <span class="days">{{ auction.time_remaining.days }}</span>d
+                            <span class="hours">{{ auction.time_remaining.hours }}</span>h
+                            <span class="minutes">{{ auction.time_remaining.minutes }}</span>m
+                            <span class="seconds">{{ auction.time_remaining.seconds }}</span>s
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="bid-info">
+                    <div class="current-price">
+                        <span class="price-label">Current Bid:</span>
+                        <span class="price-value">${{ auction.current_price }}</span>
+                    </div>
+                    
+                    <div class="bids-count">
+                        <span class="bids-label">Bids:</span>
+                        <span class="bids-value">{{ auction.bids_count }}</span>
+                        {% if auction.bids_count > 0 %}
+                            <a href="#bid-history" class="view-bids">View History</a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if auction.reserve_price and not auction.reserve_met %}
+                        <div class="reserve-notice">
+                            <i class="fas fa-exclamation-circle"></i> Reserve price not met
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="seller-info">
+                    <span class="seller-label">Seller:</span>
+                    <span class="seller-name">{{ auction.seller_username }}</span>
+                    <span class="seller-rating">
+                        <div class="stars">
+                            {% for i in range(5) %}
+                                {% if i < auction.seller_rating|int %}
+                                    <i class="fas fa-star"></i>
+                                {% elif auction.seller_rating|float - auction.seller_rating|int >= 0.5 and i == auction.seller_rating|int %}
+                                    <i class="fas fa-star-half-alt"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <span class="rating-value">{{ auction.seller_rating }} ({{ auction.seller_reviews_count }} reviews)</span>
+                    </span>
+                </div>
+                
+                {% if not auction.is_ended and 'username' in session and session.username != auction.seller_username %}
+                    <div class="bid-form">
+                        <form method="POST" action="{{ url_for('auction.place_bid', item_id=auction.item_id) }}">
+                            <div class="min-bid-notice">
+                                Minimum bid: ${{ auction.min_bid }}
+                            </div>
+                            <div class="bid-input-group">
+                                <span class="currency-symbol">$</span>
+                                <input type="number" name="bid_amount" min="{{ auction.min_bid }}" step="0.01" placeholder="Enter your bid amount" required>
+                                <button type="submit" class="btn btn-primary">Place Bid</button>
+                            </div>
+                        </form>
+                    </div>
+                {% elif auction.is_ended and auction.winner_username == session.get('username') %}
+                    <div class="winner-notice">
+                        <i class="fas fa-trophy"></i>
+                        <span>Congratulations! You won this auction.</span>
+                        {% if not auction.payment_completed %}
+                            <a href="{{ url_for('payment.checkout', item_id=auction.item_id) }}" class="btn btn-primary">Complete Payment</a>
+                        {% else %}
+                            <span class="payment-complete">Payment completed</span>
+                        {% endif %}
+                    </div>
+                {% elif auction.is_ended and auction.seller_username == session.get('username') %}
+                    <div class="seller-notice">
+                        {% if auction.bids_count > 0 and auction.reserve_met %}
+                            <i class="fas fa-check-circle"></i>
+                            <span>Your auction has ended successfully.</span>
+                            {% if not auction.payment_completed %}
+                                <span>Waiting for buyer payment.</span>
+                            {% else %}
+                                <span>Payment has been completed.</span>
+                            {% endif %}
+                        {% else %}
+                            <i class="fas fa-info-circle"></i>
+                            <span>Your auction has ended without a successful sale.</span>
+                            <a href="{{ url_for('auction.relist', item_id=auction.item_id) }}" class="btn btn-secondary">Relist Item</a>
+                        {% endif %}
+                    </div>
+                {% elif auction.is_ended %}
+                    <div class="ended-notice">
+                        <i class="fas fa-clock"></i>
+                        <span>This auction has ended.</span>
+                    </div>
+                {% elif 'username' not in session %}
+                    <div class="login-notice">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Login to Bid</a>
+                    </div>
+                {% endif %}
+                
+                <div class="auction-actions">
+                    <button class="btn btn-outline watch-btn" data-item-id="{{ auction.item_id }}">
+                        <i class="far fa-heart"></i> Watch Item
+                    </button>
+                    <button class="btn btn-outline share-btn">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
+                    <button class="btn btn-outline report-btn">
+                        <i class="fas fa-flag"></i> Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="auction-tabs">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="description">Description</button>
+            <button class="tab-btn" data-tab="shipping">Shipping & Payment</button>
+            <button class="tab-btn" data-tab="bid-history">Bid History</button>
+            <button class="tab-btn" data-tab="questions">Questions & Answers</button>
+        </div>
+        
+        <div class="tab-content active" id="description">
+            <div class="description-content">
+                {{ auction.item_description|safe }}
+            </div>
+            
+            <div class="item-details">
+                <h3>Item Details</h3>
+                <table class="details-table">
+                    <tr>
+                        <th>Condition:</th>
+                        <td>{{ auction.item_condition|replace('_', ' ')|title }}</td>
+                    </tr>
+                    <tr>
+                        <th>Category:</th>
+                        <td>{{ auction.category|title }}</td>
+                    </tr>
+                    {% if auction.brand %}
+                        <tr>
+                            <th>Brand:</th>
+                            <td>{{ auction.brand }}</td>
+                        </tr>
+                    {% endif %}
+                    {% if auction.dimensions %}
+                        <tr>
+                            <th>Dimensions:</th>
+                            <td>{{ auction.dimensions }}</td>
+                        </tr>
+                    {% endif %}
+                    {% if auction.weight %}
+                        <tr>
+                            <th>Weight:</th>
+                            <td>{{ auction.weight }}</td>
+                        </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Auction Start:</th>
+                        <td>{{ auction.start_time|date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Auction End:</th>
+                        <td>{{ auction.end_time|date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Item Location:</th>
+                        <td>{{ auction.seller_region }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="shipping">
+            <div class="shipping-options">
+                <h3>Shipping Options</h3>
+                <ul class="shipping-list">
+                    {% for option in auction.shipping_options %}
+                        <li>
+                            <span class="option-name">{{ option.name }}</span>
+                            <span class="option-price">${{ option.price }}</span>
+                            <span class="option-details">{{ option.details }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+                
+                {% if 'local_pickup' in auction.shipping_options|map(attribute='value')|list %}
+                    <div class="pickup-notice">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Local pickup available in {{ auction.seller_region }}</span>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="payment-methods">
+                <h3>Accepted Payment Methods</h3>
+                <div class="payment-icons">
+                    <i class="fab fa-cc-visa" title="Visa"></i>
+                    <i class="fab fa-cc-mastercard" title="Mastercard"></i>
+                    <i class="fab fa-cc-amex" title="American Express"></i>
+                    <i class="fab fa-cc-paypal" title="PayPal"></i>
+                    <i class="fas fa-money-bill-wave" title="Cash (for local pickup)"></i>
+                </div>
+            </div>
+            
+            <div class="return-policy">
+                <h3>Return Policy</h3>
+                <p>{{ auction.return_policy }}</p>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="bid-history">
+            {% if auction.bids|length > 0 %}
+                <table class="bid-history-table">
+                    <thead>
+                        <tr>
+                            <th>Bidder</th>
+                            <th>Bid Amount</th>
+                            <th>Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in auction.bids %}
+                            <tr>
+                                <td>{{ bid.bidder_username|masked }}</td>
+                                <td>${{ bid.amount }}</td>
+                                <td>{{ bid.timestamp|datetime }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-bids">
+                    <i class="fas fa-gavel"></i>
+                    <p>No bids have been placed yet.</p>
+                    {% if not auction.is_ended and 'username' in session and session.username != auction.seller_username %}
+                        <p>Be the first to bid on this item!</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="tab-content" id="questions">
+            <div class="questions-list">
+                {% if auction.questions|length > 0 %}
+                    {% for question in auction.questions %}
+                        <div class="question-item">
+                            <div class="question">
+                                <span class="user">{{ question.user_username|masked }}</span>
+                                <span class="text">{{ question.question }}</span>
+                                <span class="time">{{ question.timestamp|datetime }}</span>
+                            </div>
+                            {% if question.answer %}
+                                <div class="answer">
+                                    <span class="user seller">{{ auction.seller_username }}</span>
+                                    <span class="text">{{ question.answer }}</span>
+                                    <span class="time">{{ question.answer_timestamp|datetime }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-questions">
+                        <p>No questions have been asked about this item yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            {% if not auction.is_ended and 'username' in session and session.username != auction.seller_username %}
+                <div class="ask-question">
+                    <h3>Ask a Question</h3>
+                    <form method="POST" action="{{ url_for('auction.ask_question', item_id=auction.item_id) }}">
+                        <textarea name="question" placeholder="Type your question here..." required></textarea>
+                        <button type="submit" class="btn btn-primary">Submit Question</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <section class="similar-items">
+        <h2>Similar Items</h2>
+        <div class="auction-grid">
+            {% for similar in similar_items %}
+                <div class="auction-card">
+                    <div class="auction-image">
+                        <img src="{{ url_for('static', filename='uploads/' + similar.image) }}" alt="{{ similar.item_name }}">
+                        {% if similar.is_active %}
+                            <span class="badge active">Active</span>
+                        {% else %}
+                            <span class="badge ended">Ended</span>
+                        {% endif %}
+                    </div>
+                    <div class="auction-details">
+                        <h3>{{ similar.item_name }}</h3>
+                        <p class="category">{{ similar.category }}</p>
+                        <div class="price-info">
+                            <span class="current-price">${{ similar.current_price }}</span>
+                            <span class="bids-count">{{ similar.bids_count }} bids</span>
+                        </div>
+                        <div class="time-remaining">
+                            {% if similar.is_active %}
+                                <i class="far fa-clock"></i> Ends in: {{ similar.time_remaining }}
+                            {% else %}
+                                <i class="fas fa-check-circle"></i> Auction ended
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('auction.detail', item_id=similar.item_id) }}" class="btn btn-view">View Auction</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+</section>
+
+{% block extra_js %}
+<script>
+    // Image gallery functionality
+    function changeImage(thumbnail, imageUrl) {
+        document.getElementById('main-image').src = imageUrl;
+        
+        // Update active thumbnail
+        document.querySelectorAll('.thumbnail').forEach(thumb => {
+            thumb.classList.remove('active');
+        });
+        thumbnail.classList.add('active');
+    }
+    
+    // Countdown functionality
+    function updateCountdown() {
+        const countdownEl = document.querySelector('.countdown');
+        if (!countdownEl) return;
+        
+        const endTime = new Date(countdownEl.dataset.end).getTime();
+        const now = new Date().getTime();
+        const distance = endTime - now;
+        
+        if (distance <= 0) {
+            // Reload the page when auction ends
+            location.reload();
+            return;
+        }
+        
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        countdownEl.querySelector('.days').textContent = days;
+        countdownEl.querySelector('.hours').textContent = hours.toString().padStart(2, '0');
+        countdownEl.querySelector('.minutes').textContent = minutes.toString().padStart(2, '0');
+        countdownEl.querySelector('.seconds').textContent = seconds.toString().padStart(2, '0');
+    }
+    
+    // Tab functionality
+    document.querySelectorAll('.tab-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Add active class to clicked tab
+            this.classList.add('active');
+            document.getElementById(this.dataset.tab).classList.add('active');
+        });
+    });
+    
+    // Watch item functionality
+    document.querySelector('.watch-btn').addEventListener('click', function() {
+        const itemId = this.dataset.itemId;
+        const icon = this.querySelector('i');
+        
+        fetch(`/auction/watch/${itemId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'added') {
+                icon.classList.remove('far');
+                icon.classList.add('fas');
+                this.innerHTML = '<i class="fas fa-heart"></i> Watching';
+            } else {
+                icon.classList.remove('fas');
+                icon.classList.add('far');
+                this.innerHTML = '<i class="far fa-heart"></i> Watch Item';
+            }
+        });
+    });
+    
+    // Share functionality
+    document.querySelector('.share-btn').addEventListener('click', function() {
+        if (navigator.share) {
+            navigator.share({
+                title: '{{ auction.item_name }}',
+                text: 'Check out this auction on AuctionHub!',
+                url: window.location.href
+            })
+            .catch(console.error);
+        } else {
+            // Fallback to copy to clipboard
+            const dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            
+            alert('Link copied to clipboard!');
+        }
+    });
+    
+    // Report functionality
+    document.querySelector('.report-btn').addEventListener('click', function() {
+        const reasonPrompt = prompt('Please select a reason for reporting this listing:', 'Prohibited item, Counterfeit, Misleading description, Other');
+        if (reasonPrompt) {
+            fetch(`/auction/report/${itemId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ reason: reasonPrompt })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Thank you for your report. Our team will review this listing.');
+                } else {
+                    alert('An error occurred while submitting your report. Please try again.');
+                }
+            });
+        }
+    });
+    
+    // Initialize countdown and update every second
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+</script>
+{% endblock %}
 {% endblock %}

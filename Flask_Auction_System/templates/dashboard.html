@@ -1,12 +1,213 @@
 {% extends 'base.html' %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard - AuctionHub{% endblock %}
+
 {% block content %}
-<h2>Welcome, {{ username }}</h2>
-<a href="{{ url_for('auction.add_item') }}">Add Item</a>
-<h3>Ongoing Auctions</h3>
-<ul>
-    {% for auction in auctions %}
-    <li>{{ auction.item_name }} - <a href="{{ url_for('auction_detail', item_id=auction.item_id) }}">View</a></li>
-    {% endfor %}
-</ul>
+<section class="dashboard-header">
+    <h1>Welcome, {{ user.username }}</h1>
+    <p class="user-since">Member since: {{ user.joined_date }}</p>
+</section>
+
+<section class="dashboard-stats">
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-gavel"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ stats.active_bids }}</h3>
+            <p>Active Bids</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-tags"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ stats.active_listings }}</h3>
+            <p>Active Listings</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-trophy"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ stats.won_auctions }}</h3>
+            <p>Won Auctions</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ stats.completed_sales }}</h3>
+            <p>Completed Sales</p>
+        </div>
+    </div>
+</section>
+
+<section class="dashboard-actions">
+    <a href="{{ url_for('auction.add_item') }}" class="action-card">
+        <i class="fas fa-plus-circle"></i>
+        <h3>Add New Item</h3>
+        <p>List a new item for auction</p>
+    </a>
+    
+    <a href="{{ url_for('auction.my_auctions') }}" class="action-card">
+        <i class="fas fa-list"></i>
+        <h3>My Auctions</h3>
+        <p>View and manage your auctions</p>
+    </a>
+    
+    <a href="{{ url_for('auction.my_bids') }}" class="action-card">
+        <i class="fas fa-hand-paper"></i>
+        <h3>My Bids</h3>
+        <p>Track your bids on auctions</p>
+    </a>
+    
+    <a href="{{ url_for('main.payments') }}" class="action-card">
+        <i class="fas fa-credit-card"></i>
+        <h3>Payments</h3>
+        <p>View payment history and pending payments</p>
+    </a>
+</section>
+
+<section class="dashboard-recent">
+    <div class="recent-bids">
+        <div class="section-header">
+            <h2>Recent Bids</h2>
+            <a href="{{ url_for('auction.my_auctions') }}" class="view-all">View All</a>
+        </div>
+        
+        {% if recent_bids %}
+            <div class="table-responsive">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Your Bid</th>
+                            <th>Current Highest</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in recent_bids %}
+                            <tr>
+                                <td>{{ bid.item_name }}</td>
+                                <td>${{ bid.bid_amount }}</td>
+                                <td>${{ bid.current_highest }}</td>
+                                <td>
+                                    {% if bid.is_highest %}
+                                        <span class="status-badge highest">Highest</span>
+                                    {% elif bid.auction_active %}
+                                        <span class="status-badge outbid">Outbid</span>
+                                    {% else %}
+                                        <span class="status-badge ended">Ended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('auction.detail', item_id=bid.item_id) }}" class="btn btn-sm">View</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-hand-paper"></i>
+                <p>You haven't placed any bids yet.</p>
+                <a href="{{ url_for('auction.browse') }}" class="btn btn-primary">Browse Auctions</a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="recent-listings">
+        <div class="section-header">
+            <h2>Your Active Listings</h2>
+            <a href="{{ url_for('auction.my_auctions') }}" class="view-all">View All</a>
+        </div>
+        
+        {% if active_listings %}
+            <div class="table-responsive">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Current Bid</th>
+                            <th>Bids</th>
+                            <th>Time Left</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for listing in active_listings %}
+                            <tr>
+                                <td>{{ listing.item_name }}</td>
+                                <td>${{ listing.current_price }}</td>
+                                <td>{{ listing.bids_count }}</td>
+                                <td>{{ listing.time_remaining }}</td>
+                                <td>
+                                    <a href="{{ url_for('auction.detail', item_id=listing.item_id) }}" class="btn btn-sm">View</a>
+                                    <a href="{{ url_for('auction.edit', item_id=listing.item_id) }}" class="btn btn-sm">Edit</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-tag"></i>
+                <p>You don't have any active listings.</p>
+                <a href="{{ url_for('auction.add_item') }}" class="btn btn-primary">Add New Item</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="dashboard-notifications">
+    <div class="section-header">
+        <h2>Recent Notifications</h2>
+        <a href="{{ url_for('main.notifications') }}" class="view-all">View All</a>
+    </div>
+    
+    {% if notifications %}
+        <div class="notifications-list">
+            {% for notification in notifications %}
+                <div class="notification-item {% if not notification.read %}unread{% endif %}">
+                    <div class="notification-icon">
+                        {% if notification.type == 'bid' %}
+                            <i class="fas fa-gavel"></i>
+                        {% elif notification.type == 'win' %}
+                            <i class="fas fa-trophy"></i>
+                        {% elif notification.type == 'payment' %}
+                            <i class="fas fa-money-bill-wave"></i>
+                        {% elif notification.type == 'message' %}
+                            <i class="fas fa-envelope"></i>
+                        {% else %}
+                            <i class="fas fa-bell"></i>
+                        {% endif %}
+                    </div>
+                    <div class="notification-content">
+                        <p>{{ notification.message }}</p>
+                        <span class="notification-time">{{ notification.time }}</span>
+                    </div>
+                    {% if not notification.read %}
+                        <a href="{{ url_for('user.mark_read', notification_id=notification.id) }}" class="mark-read">Mark as read</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-bell-slash"></i>
+            <p>You have no notifications at this time.</p>
+        </div>
+    {% endif %}
+</section>
 {% endblock %}

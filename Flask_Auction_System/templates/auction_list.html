@@ -1,10 +1,252 @@
 {% extends 'base.html' %}
-{% block title %}Auctions{% endblock %}
+{% block title %}Browse Auctions - AuctionHub{% endblock %}
+
 {% block content %}
-<h2>Auctions</h2>
-<ul>
-    {% for auction in auctions %}
-    <li>{{ auction.item_name }} - <a href="{{ url_for('auction_detail', item_id=auction.item_id) }}">View</a></li>
-    {% endfor %}
-</ul>
+<section class="auction-browse">
+    <div class="browse-header">
+        <h1>Browse Auctions</h1>
+        <div class="browse-controls">
+            <div class="search-box">
+                <form method="GET" action="{{ url_for('auction.browse') }}">
+                    <input type="text" name="search" placeholder="Search for items..." value="{{ request.args.get('search', '') }}">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </form>
+            </div>
+            
+            <div class="sort-dropdown">
+                <select id="sort-order" onchange="updateSort()">
+                    <option value="ending_soon" {% if sort == 'ending_soon' %}selected{% endif %}>Ending Soon</option>
+                    <option value="newly_listed" {% if sort == 'newly_listed' %}selected{% endif %}>Newly Listed</option>
+                    <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="bids" {% if sort == 'bids' %}selected{% endif %}>Most Bids</option>
+                </select>
+            </div>
+            
+            <div class="view-toggle">
+                <button class="grid-view active"><i class="fas fa-th"></i></button>
+                <button class="list-view"><i class="fas fa-list"></i></button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="filter-panel">
+        <h3>Filter Results</h3>
+        <form method="GET" action="{{ url_for('auction.browse') }}" id="filter-form">
+            <input type="hidden" name="search" value="{{ request.args.get('search', '') }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            
+            <div class="filter-section">
+                <h4>Categories</h4>
+                <div class="filter-options">
+                    {% for category in categories %}
+                    <div class="filter-option">
+                        <input type="checkbox" name="category" value="{{ category.id }}" id="cat-{{ category.id }}"
+                            {% if category.id|string in request.args.getlist('category') %}checked{% endif %}>
+                        <label for="cat-{{ category.id }}">{{ category.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Price Range</h4>
+                <div class="price-range">
+                    <input type="number" name="min_price" placeholder="Min" value="{{ request.args.get('min_price', '') }}">
+                    <span>to</span>
+                    <input type="number" name="max_price" placeholder="Max" value="{{ request.args.get('max_price', '') }}">
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Auction Status</h4>
+                <div class="filter-options">
+                    <div class="filter-option">
+                        <input type="checkbox" name="status" value="active" id="status-active"
+                            {% if 'active' in request.args.getlist('status') %}checked{% endif %}>
+                        <label for="status-active">Active Only</label>
+                    </div>
+                    <div class="filter-option">
+                        <input type="checkbox" name="status" value="ending_soon" id="status-ending"
+                            {% if 'ending_soon' in request.args.getlist('status') %}checked{% endif %}>
+                        <label for="status-ending">Ending Soon (24h)</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="filter-buttons">
+                <button type="submit" class="primary-button">Apply Filters</button>
+                <button type="button" id="clear-filters" class="secondary-button">Clear All</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="auctions-container grid-view-active">
+        {% if auctions %}
+            {% for auction in auctions %}
+            <div class="auction-card">
+                <div class="auction-image">
+                    {% if auction.images %}
+                    <img src="{{ url_for('static', filename='uploads/' + auction.images[0].filename) }}" alt="{{ auction.title }}">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='img/no-image.png') }}" alt="No image available">
+                    {% endif %}
+                    {% if auction.is_ending_soon %}
+                    <div class="ending-badge">Ending Soon!</div>
+                    {% endif %}
+                </div>
+                <div class="auction-details">
+                    <h3><a href="{{ url_for('auction.view_auction', auction_id=auction.item_id|default(0)) }}">{{ auction.item_name }}</a></h3>
+                    <div class="auction-meta">
+                        <p class="category">{{ auction.category.name }}</p>
+                        <p class="current-bid">Current Bid: <strong>${{ auction.current_price|default(auction.starting_price)|format_price }}</strong></p>
+                        <p class="bid-count"><i class="fas fa-gavel"></i> {{ auction.bids|length }} bids</p>
+                        <p class="time-left">
+                            <i class="far fa-clock"></i> 
+                            <span class="countdown" data-end="{{ auction.end_time }}">
+                                {{ auction.end_time|timeuntil }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="auction-actions">
+                        <a href="{{ url_for('auction.view_auction', auction_id=auction.item_id) }}" class="primary-button">View Details</a>
+                        <button class="watch-button {% if auction.id in watched_auctions %}watched{% endif %}" data-auction-id="{{ auction.id }}">
+                            <i class="{% if auction.id in watched_auctions %}fas{% else %}far{% endif %} fa-star"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <i class="fas fa-search"></i>
+                <h3>No auctions found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    {% if pagination and pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('auction.view_auctions', page=pagination.prev_page) }}" class="prev">Previous</a>
+        {% endif %}
+        
+        <div class="page-numbers">
+            {% for page in range(1, pagination.pages + 1) %}
+                {% if page %}
+                    {% if page == pagination.page %}
+                    <span class="current-page">{{ page }}</span>
+                    {% else %}
+                    <a href="{{ url_for('auction.browse', page=page, **request.args) }}">{{ page }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="ellipsis">...</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        
+        {% if pagination.has_next %}
+        <a href="{{ url_for('auction.view_auctions', page=pagination.next_page) }}" class="next">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+<script>
+    function updateSort() {
+        const sortValue = document.getElementById('sort-order').value;
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('sort', sortValue);
+        window.location.href = currentUrl.toString();
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // View toggle functionality
+        const gridButton = document.querySelector('.grid-view');
+        const listButton = document.querySelector('.list-view');
+        const container = document.querySelector('.auctions-container');
+        
+        gridButton.addEventListener('click', function() {
+            container.classList.add('grid-view-active');
+            container.classList.remove('list-view-active');
+            gridButton.classList.add('active');
+            listButton.classList.remove('active');
+        });
+        
+        listButton.addEventListener('click', function() {
+            container.classList.add('list-view-active');
+            container.classList.remove('grid-view-active');
+            listButton.classList.add('active');
+            gridButton.classList.remove('active');
+        });
+        
+        // Clear filters functionality
+        document.getElementById('clear-filters').addEventListener('click', function() {
+            const searchValue = document.querySelector('input[name="search"]').value;
+            const sortValue = document.getElementById('sort-order').value;
+            window.location.href = "{{ url_for('auction.browse') }}?search=" + searchValue + "&sort=" + sortValue;
+        });
+        
+        // Watch button functionality
+        document.querySelectorAll('.watch-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const auctionId = this.dataset.auctionId;
+                fetch("{{ url_for('auction.toggle_watch') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}'
+                    },
+                    body: JSON.stringify({auction_id: auctionId})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.classList.toggle('watched');
+                        const icon = this.querySelector('i');
+                        if (this.classList.contains('watched')) {
+                            icon.classList.remove('far');
+                            icon.classList.add('fas');
+                        } else {
+                            icon.classList.remove('fas');
+                            icon.classList.add('far');
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Countdown functionality
+        function updateCountdowns() {
+            document.querySelectorAll('.countdown').forEach(element => {
+                const endTime = new Date(element.dataset.end);
+                const now = new Date();
+                const diff = endTime - now;
+                
+                if (diff <= 0) {
+                    element.innerHTML = 'Ended';
+                    return;
+                }
+                
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                if (days > 0) {
+                    element.innerHTML = `${days}d ${hours}h ${minutes}m`;
+                } else if (hours > 0) {
+                    element.innerHTML = `${hours}h ${minutes}m ${seconds}s`;
+                } else {
+                    element.innerHTML = `${minutes}m ${seconds}s`;
+                    element.classList.add('urgent');
+                }
+            });
+        }
+        
+        updateCountdowns();
+        setInterval(updateCountdowns, 1000);
+    });
+</script>
 {% endblock %}

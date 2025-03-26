@@ -1,11 +1,123 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Auction System</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
-</head>
-<body>
-    <h1>Welcome to the Online Auction System</h1>
-    <a href="{{ url_for('auth.register') }}">Register</a> | <a href="{{ url_for('auth.login') }}">Login</a>
-</body>
-</html>
+{% extends 'base.html' %}
+{% block title %}Welcome to AuctionHub{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-content">
+        <h1>Welcome to AuctionHub</h1>
+        <p>Your trusted platform for online auctions</p>
+        {% if 'username' not in session %}
+            <div class="cta-buttons">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Register</a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Login</a>
+            </div>
+        {% else %}
+            <div class="cta-buttons">
+                <a href="{{ url_for('auction.browse') }}" class="btn btn-primary">Browse Auctions</a>
+                <a href="{{ url_for('auction.add_item') }}" class="btn btn-secondary">Add Item</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="featured-auctions">
+    <h2>Featured Auctions</h2>
+    <div class="auction-grid">
+        {% for auction in featured_auctions %}
+            <div class="auction-card">
+                <div class="auction-image">
+                    <img src="{{ url_for('static', filename='uploads/' + auction.image) }}" alt="{{ auction.item_name }}">
+                    {% if auction.is_active %}
+                        <span class="badge active">Active</span>
+                    {% else %}
+                        <span class="badge ended">Ended</span>
+                    {% endif %}
+                </div>
+                <div class="auction-details">
+                    <h3>{{ auction.item_name }}</h3>
+                    <p class="category">{{ auction.category }}</p>
+                    <div class="price-info">
+                        <span class="current-price">${{ auction.current_price }}</span>
+                        <span class="bids-count">{{ auction.bids_count }} bids</span>
+                    </div>
+                    <div class="time-remaining">
+                        {% if auction.is_active %}
+                            <i class="far fa-clock"></i> Ends in: {{ auction.time_remaining }}
+                        {% else %}
+                            <i class="fas fa-check-circle"></i> Auction ended
+                        {% endif %}
+                    </div>
+                    <a href="{{ url_for('auction.detail', item_id=auction.item_id) }}" class="btn btn-view">View Auction</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="view-all">
+        <a href="{{ url_for('auction.browse') }}" class="btn btn-outline">View All Auctions</a>
+    </div>
+</section>
+
+<section class="how-it-works">
+    <h2>How It Works</h2>
+    <div class="steps">
+        <div class="step">
+            <div class="step-icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h3>Register</h3>
+            <p>Create an account with your details and verify your identity with documents.</p>
+        </div>
+        <div class="step">
+            <div class="step-icon">
+                <i class="fas fa-upload"></i>
+            </div>
+            <h3>List Items</h3>
+            <p>Add your items for auction with details, images, and set a starting price.</p>
+        </div>
+        <div class="step">
+            <div class="step-icon">
+                <i class="fas fa-gavel"></i>
+            </div>
+            <h3>Bid</h3>
+            <p>Browse and bid on items you're interested in purchasing.</p>
+        </div>
+        <div class="step">
+            <div class="step-icon">
+                <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <h3>Pay & Receive</h3>
+            <p>Winners make payments and receive their items securely.</p>
+        </div>
+    </div>
+</section>
+
+<section class="categories">
+    <h2>Popular Categories</h2>
+    <div class="category-grid">
+        <a href="{{ url_for('auction.browse', category='electronics') }}" class="category-card">
+            <i class="fas fa-laptop"></i>
+            <h3>Electronics</h3>
+        </a>
+        <a href="{{ url_for('auction.browse', category='collectibles') }}" class="category-card">
+            <i class="fas fa-coins"></i>
+            <h3>Collectibles</h3>
+        </a>
+        <a href="{{ url_for('auction.browse', category='art') }}" class="category-card">
+            <i class="fas fa-paint-brush"></i>
+            <h3>Art</h3>
+        </a>
+        <a href="{{ url_for('auction.browse', category='furniture') }}" class="category-card">
+            <i class="fas fa-couch"></i>
+            <h3>Furniture</h3>
+        </a>
+        <a href="{{ url_for('auction.browse', category='vehicles') }}" class="category-card">
+            <i class="fas fa-car"></i>
+            <h3>Vehicles</h3>
+        </a>
+        <a href="{{ url_for('auction.browse', category='jewelry') }}" class="category-card">
+            <i class="fas fa-gem"></i>
+            <h3>Jewelry</h3>
+        </a>
+    </div>
+</section>
+{% endblock %}

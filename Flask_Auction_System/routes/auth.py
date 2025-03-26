@@ -38,6 +38,10 @@ def login():
         return "Invalid credentials", 401
     return render_template('login.html')
 
+@auth_bp.route('/forgot_password')
+def forgot_password():
+    return render_template('forgot_password.html')
+
 @auth_bp.route('/logout')
 def logout():
     session.pop('username', None)

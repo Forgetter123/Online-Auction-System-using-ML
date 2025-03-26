@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --success-color: #4cc9f0;
+            --danger-color: #f72585;
+            --warning-color: #f9c74f;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --gray-color: #6c757d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            color: var(--dark-color);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--dark-color);
+        }
+
+        .notification-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .notification-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .notification {
+            background-color: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .notification:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .notification-icon {
+            width: 40px;
+            height: 40px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .notification-icon.info {
+            background-color: var(--primary-color);
+        }
+
+        .notification-icon.success {
+            background-color: var(--success-color);
+        }
+
+        .notification-icon.warning {
+            background-color: var(--warning-color);
+        }
+
+        .notification-icon.danger {
+            background-color: var(--danger-color);
+        }
+
+        .notification-content {
+            flex-grow: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .notification-time {
+            font-size: 12px;
+            color: var(--gray-color);
+        }
+
+        .notification-message {
+            font-size: 14px;
+            color: var(--dark-color);
+            line-height: 1.5;
+        }
+
+        .unread {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 10px;
+            height: 10px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+        }
+
+        .notification-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            background-color: var(--light-color);
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background-color: #ddd;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter {
+            padding: 6px 12px;
+            background-color: white;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid #ddd;
+        }
+
+        .filter.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .filter:hover:not(.active) {
+            background-color: #f0f0f0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 0;
+            color: var(--gray-color);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .notification {
+                padding: 12px;
+            }
+
+            .notification-icon {
+                width: 32px;
+                height: 32px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Notifications</h1>
+            <div class="notification-controls">
+                <button class="btn btn-primary" id="markAllRead">Mark All as Read</button>
+                <button class="btn btn-danger" id="clearAll">Clear All</button>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter active" data-filter="all">All</div>
+            <div class="filter" data-filter="unread">Unread</div>
+            <div class="filter" data-filter="info">Information</div>
+            <div class="filter" data-filter="warning">Warnings</div>
+            <div class="filter" data-filter="success">Success</div>
+        </div>
+
+        <div class="notification-list" id="notificationList">
+            <div class="notification" data-type="info">
+                <div class="notification-icon info">i</div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        System Update Available
+                        <span class="notification-time">2 hours ago</span>
+                    </div>
+                    <div class="notification-message">
+                        A new system update (v2.4.1) is available. Click to learn more about the new features.
+                    </div>
+                    <div class="notification-actions">
+                        <button class="action-btn">View Details</button>
+                        <button class="action-btn">Update Now</button>
+                    </div>
+                </div>
+                <div class="unread"></div>
+            </div>
+
+            <div class="notification" data-type="success">
+                <div class="notification-icon success">✓</div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        Payment Successful
+                        <span class="notification-time">Yesterday</span>
+                    </div>
+                    <div class="notification-message">
+                        Your payment of $49.99 was successfully processed. Your subscription has been extended.
+                    </div>
+                    <div class="notification-actions">
+                        <button class="action-btn">View Receipt</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notification" data-type="warning">
+                <div class="notification-icon warning">!</div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        Storage Space Low
+                        <span class="notification-time">3 days ago</span>
+                    </div>
+                    <div class="notification-message">
+                        Your storage space is running low (15% remaining). Consider upgrading your plan or removing unused files.
+                    </div>
+                    <div class="notification-actions">
+                        <button class="action-btn">Upgrade Plan</button>
+                        <button class="action-btn">Manage Storage</button>
+                    </div>
+                </div>
+                <div class="unread"></div>
+            </div>
+
+            <div class="notification" data-type="danger">
+                <div class="notification-icon danger">!</div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        Security Alert
+                        <span class="notification-time">5 days ago</span>
+                    </div>
+                    <div class="notification-message">
+                        We detected a login attempt from an unrecognized device. Please verify this was you.
+                    </div>
+                    <div class="notification-actions">
+                        <button class="action-btn">It was me</button>
+                        <button class="action-btn">Secure Account</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i>📬</i>
+            <h3>No notifications yet</h3>
+            <p>When you receive notifications, they will appear here.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const notificationList = document.getElementById('notificationList');
+            const emptyState = document.getElementById('emptyState');
+            const clearAllBtn = document.getElementById('clearAll');
+            const markAllReadBtn = document.getElementById('markAllRead');
+            const filters = document.querySelectorAll('.filter');
+
+            // Clear all notifications
+            clearAllBtn.addEventListener('click', () => {
+                notificationList.innerHTML = '';
+                emptyState.style.display = 'block';
+            });
+
+            // Mark all as read
+            markAllReadBtn.addEventListener('click', () => {
+                const unreadMarkers = document.querySelectorAll('.unread');
+                unreadMarkers.forEach(marker => {
+                    marker.remove();
+                });
+            });
+
+            // Filtering logic
+            filters.forEach(filter => {
+                filter.addEventListener('click', () => {
+                    // Update active state
+                    filters.forEach(f => f.classList.remove('active'));
+                    filter.classList.add('active');
+
+                    const filterType = filter.getAttribute('data-filter');
+                    const notifications = document.querySelectorAll('.notification');
+
+                    notifications.forEach(notification => {
+                        if (filterType === 'all') {
+                            notification.style.display = 'flex';
+                        } else if (filterType === 'unread') {
+                            const hasUnread = notification.querySelector('.unread');
+                            notification.style.display = hasUnread ? 'flex' : 'none';
+                        } else {
+                            const notificationType = notification.getAttribute('data-type');
+                            notification.style.display = notificationType === filterType ? 'flex' : 'none';
+                        }
+                    });
+
+                    // Check if any notifications are visible
+                    const visibleNotifications = Array.from(notifications).filter(n => n.style.display !== 'none');
+                    emptyState.style.display = visibleNotifications.length === 0 ? 'block' : 'none';
+                });
+            });
+
+            // Make each notification dismissable
+            const notifications = document.querySelectorAll('.notification');
+            notifications.forEach(notification => {
+                notification.addEventListener('click', (e) => {
+                    // Remove unread marker when clicked
+                    const unread = notification.querySelector('.unread');
+                    if (unread && !e.target.classList.contains('action-btn')) {
+                        unread.remove();
+                    }
+                });
+
+                // Double click to dismiss
+                notification.addEventListener('dblclick', () => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        notification.remove();
+                        
+                        // Check if any notifications are left
+                        if (notificationList.children.length === 0) {
+                            emptyState.style.display = 'block';
+                        }
+                    }, 300);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
